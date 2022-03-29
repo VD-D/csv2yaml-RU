@@ -1,8 +1,13 @@
 # Made with PyCharm 2021 community edition
+# Contributor(s): Robert Uszynski
+# Date: 30/03/2022
+# Version: 1.0
+
 import os  # os used for file I/O
 import sys  # sys used for command line
 import subprocess  # subprocess used to install pandas if missing
 import unittest  # unittest for testing framework
+import argparse  # argparse to parse commandline arguments
 
 # Install pandas if not already installed. Requires pip to be installed, may not be an "always works" solution on
 # some systems.
@@ -130,12 +135,27 @@ class TestCsv2Yaml(unittest.TestCase):
 
 
 if __name__ == '__main__':
-    unittest.main(argv=['first-arg-is-ignored'], exit=False)
+    # Setup commandline argument parsing
+    parser = argparse.ArgumentParser()
+    parser.add_argument('-v', '--version', action='store_true', help='Displays author and version, then terminates '
+                                                                     'program')
+    parser.add_argument('-t', '--tests', action='store_true', help='Set this flag to run tests')
+    parser.add_argument('-f', '--file', type=str, help='If provided will execute main program on this file. Must be '
+                                                       'full path, e.g. \'C:/Testing/Data/testdata.csv\'')
+    args = parser.parse_args()
 
-    # Main program (uncomment to execute via CLI)
-    # Case where no arguments are provided (error)
-    # if len(sys.argv) < 1:
-    #     print('Error! First argument must be path to csv file!')
-    #     exit(1)
+    # Print version if flagged to do so
+    if args.version:
+        print('Author(s): Robert Uszynski, Script version: 1.0, Last major update: 30/03/2021')
+        print('Python version,', sys.version)
+        exit(0)
 
-    # main_program(sys.argv[0])
+    # Run tests if flagged to do so
+    if args.tests:
+        unittest.main(argv=['first-arg-is-ignored'], exit=False)
+
+    # Attempt to run main program with provided file
+    if args.file:
+        print('\n---- Running main program with file:', args.file)
+        main_program(args.file)
+
