@@ -2,6 +2,7 @@
 import os  # os used for file I/O
 import sys  # sys used for command line
 import subprocess  # subprocess used to install pandas if missing
+import unittest  # unittest for testing framework
 
 # Install pandas if not already installed. Requires pip to be installed, may not be an "always works" solution on
 # some systems.
@@ -29,19 +30,14 @@ def print_record(my_data, my_index):
 
 
 # Main program
-if __name__ == '__main__':
-    # Case where no arguments are provided (error)
-    if len(sys.argv) < 1:
-        print('Error! First argument must be path to csv file!')
-        exit(1)
-
+def main_program(csv_file_path):
     # Case where file path is incorrect
-    if not os.path.exists(sys.argv[0]):
-        print('Error! File path:', sys.argv[1], 'is invalid (no such file or directory).')
-        exit(1)
+    if not os.path.exists(csv_file_path):
+        print('Error! File path:', csv_file_path, 'is invalid (no such file or directory).')
+        return False
 
     # Read data and clear NA data
-    data = pd.read_csv(sys.argv[1])
+    data = pd.read_csv(csv_file_path)
     data = data.dropna()
     # Note: in a more feature-full solution, missing data could be in some way imputed.
     # E.g. An NA points score could be replaced with 0.
@@ -51,7 +47,7 @@ if __name__ == '__main__':
     default_cols = ['firstname', 'lastname', 'date', 'division', 'points', 'summary']
     if not cols == default_cols:
         print('Error! Expected column names are', default_cols, 'instead found', cols)
-        exit(1)
+        return False
 
     # Handle the case where the data-types may not be what is expected. Noting that date is considered a string.
     # Expect firstname, lastname, date and summary to be of type object and
@@ -59,46 +55,87 @@ if __name__ == '__main__':
     for col in data.columns:
         if col == 'firstname' or col == 'lastname' or col == 'date' or col == 'summary':
             if not isinstance(data[col].dtype, object):
-                print('Error! Expected col:', col, 'to be of type string!')
-                exit(1)
+                print('Error! Expected col:', col, 'to be of type object!')
+                return False
 
         elif col == 'division' or col == 'points':
             if not data[col].dtype == 'int64':
                 print('Error! Expected col:', col, 'to be of type int64!')
-                exit(1)
+                return False
+
+    # Used for handling case for data which has less than 3 rows
+    max_rows = 3 if data.shape[0] >= 3 else data.shape[0]
 
     # Note: due to ambiguity in instruction, data is first sorted by points, then by division to get desired output.
     # This is not necessarily equivalent to sorting by division then by points.
     data = data.sort_values(by='points', ascending=False)
     data = data.sort_values(by='division', ascending=True)
-    data = data[0:3]
+    data = data[0:max_rows]
 
     # Actually print the records
     print('records:')
-    for index in range(3):
+    for index in range(max_rows):
         print_record(data, index)
 
-    # # Case where less than 2 arguments are provided
-    # if len(sys.argv) < 2:
-    #     flag = 0
-    # # Case where help is requested
-    # if len(sys.argv) > 2:
-    #     if sys.argv[1] == 'h' or sys.argv[1] == 'help':
-    #         # TODO
-    #         flag = -1
-    #     # Case where flag is terminal only output.
-    #     elif sys.argv[1] == 't' or sys.argv[1] == 'terminal':
-    #         flag = 0
-    #     # Case where flag is file only output.
-    #     elif sys.argv[1] == 'f' or sys.argv[1] == 'file':
-    #         flag = 1
-    #     # Case where flag is terminal and file output.
-    #     elif sys.argv[1] == 'b' or sys.argv[1] == 'both':
-    #         flag = 2
-    #     else:
-    #         flag = 0
-    #         print('Warning! Argument two: \"', sys.argv[1],
-    #               '\" does not match any known flag. (Try \'csv2yaml.py help\')'
-    #               , sep='')
+    return True
 
-    # print('Argument List:', str(sys.argv))
+
+class TestCsv2Yaml(unittest.TestCase):
+    base_file_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'Testing')
+
+    def setUp(self) -> None:
+        pass
+
+    # Default test on correct data -> should assert True
+    def test_succeed(self):
+        print('\n---- Run test succeed ----')
+        self.assertTrue(main_program(os.path.join(self.base_file_path, 'testdata.csv')))
+
+    # Test for passing invalid filepath -> should assert False (cannot read file)
+    def test_invalid_filepath(self):
+        print('\n---- Run test invalid filepath ----')
+        self.assertFalse(main_program("garbage/path"))
+
+    # Test for passing a csv file with incorrect col names -> should assert False (data cannot be interpreted)
+    def test_wrong_cols(self):
+        print('\n---- Run test wrong cols ----')
+        self.assertFalse(main_program(os.path.join(self.base_file_path, 'testdata-wrongcols.csv')))
+
+    # Test for passing a csv file with only 2 rows of data -> should assert True (but only print 2 records)
+    def test_two_row_data(self):
+        print('\n---- Run test two row data ----')
+        self.assertTrue(main_program(os.path.join(self.base_file_path, 'testdata-tworows.csv')))
+
+    # Test where firstnames have been replaced with numbers -> should assert True
+    # Interestingly, I initially expected this to assert False, but pandas is smart enough to coerce the numbers into
+    # strings (so their names will be 0.1, 1.1, 2.1, etc...)
+    def test_numeric_names(self):
+        print('\n---- Run test numeric names ----')
+        self.assertTrue(main_program(os.path.join(self.base_file_path, 'testdata-numericnames.csv')))
+
+    # Test where scores are replaced with strings -> should assert False (data cannot be interpreted)
+    def test_string_score(self):
+        print('\n---- Run test string points ----')
+        self.assertFalse(main_program(os.path.join(self.base_file_path, 'testdata-stringpoints.csv')))
+
+    # Test where there are NA values NOT in division or scores -> should assert True (but remove NA data)
+    def test_NA_values(self):
+        print('\n---- Run test NA values ----')
+        self.assertTrue(main_program(os.path.join(self.base_file_path, 'testdata-NA.csv')))
+
+    # Test where there are NA values IN division or scores -> should assert False (as there is dtype mismatch)
+    def test_missing_scores_divisions(self):
+        print('\n---- Run test missing scores & divisions ----')
+        self.assertFalse(main_program(os.path.join(self.base_file_path, 'testdata-missingscoresdivisions.csv')))
+
+
+if __name__ == '__main__':
+    unittest.main(argv=['first-arg-is-ignored'], exit=False)
+
+    # Main program (uncomment to execute via CLI)
+    # Case where no arguments are provided (error)
+    # if len(sys.argv) < 1:
+    #     print('Error! First argument must be path to csv file!')
+    #     exit(1)
+
+    # main_program(sys.argv[0])
