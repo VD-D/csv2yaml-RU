@@ -159,3 +159,24 @@ if __name__ == '__main__':
         print('\n---- Running main program with file:', args.file)
         main_program(args.file)
 
+    # Case where no arguments are provided
+    if not args.version and not args.tests and not args.file:
+        print("""
+No arguments provided! Try:
+usage: main.py [-h] [-v] [-t] [-f FILE]
+
+optional arguments:
+  -h, --help            show this help message and exit
+  -v, --version         Displays author and version, then terminates program
+  -t, --tests           Set this flag to run tests
+  -f FILE, --file FILE  If provided will execute main program on this file.
+                        Must be full path, e.g. 'C:/Testing/Data/testdata.csv'
+""")
+
+# Additional note:
+#
+# Python has a library called pyyaml designed for parsing and tokenizing yaml files.
+# In a non test scenario where the goal would be to actually write the yaml string to a file and the yaml string would
+# be more complicated, I would this library. After sorting data, I would do: 1. convert pandas dataframe to json string,
+# then 2. use pyyaml to convert that json string to yaml format.
+# In this case, I decided this solution was over-engineering.
